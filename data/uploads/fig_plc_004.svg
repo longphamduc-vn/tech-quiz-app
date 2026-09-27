@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="100%" height="100%">
+    <rect width="600" height="200" fill="#0f172a" rx="12"/>
+    <style>
+      .power-rail { stroke: #ef4444; stroke-width: 4; }
+      .wire { stroke: #38bdf8; stroke-width: 2.5; fill: none; }
+      .txt { fill: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+      .lbl { fill: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    </style>
+    <!-- Rails -->
+    <line x1="50" y1="20" x2="50" y2="180" class="power-rail" />
+    <line x1="550" y1="20" x2="550" y2="180" class="power-rail" stroke="#3b82f6" />
+    <text x="30" y="15" class="txt" fill="#ef4444">L1 (+24V)</text>
+    <text x="530" y="15" class="txt" fill="#3b82f6">N (0V)</text>
+
+    <!-- Rung 1: Start (NO), Stop (NC), Coil (M1) -->
+    <line x1="50" y1="60" x2="140" y2="60" class="wire" />
+    <!-- Start Contact NO -->
+    <line x1="140" y1="50" x2="140" y2="70" stroke="#f8fafc" stroke-width="3"/>
+    <line x1="155" y1="50" x2="155" y2="70" stroke="#f8fafc" stroke-width="3"/>
+    <text x="148" y="40" text-anchor="middle" class="txt">I0.0 (Start)</text>
+    <line x1="155" y1="60" x2="260" y2="60" class="wire" />
+
+    <!-- Stop Contact NC -->
+    <line x1="260" y1="50" x2="260" y2="70" stroke="#f8fafc" stroke-width="3"/>
+    <line x1="275" y1="50" x2="275" y2="70" stroke="#f8fafc" stroke-width="3"/>
+    <line x1="255" y1="72" x2="280" y2="48" stroke="#ef4444" stroke-width="2.5"/>
+    <text x="268" y="40" text-anchor="middle" class="txt">I0.1 (Stop)</text>
+    <line x1="275" y1="60" x2="440" y2="60" class="wire" />
+
+    <!-- Latch Contact below Start -->
+    <line x1="110" y1="60" x2="110" y2="120" class="wire"/>
+    <line x1="110" y1="120" x2="140" y2="120" class="wire"/>
+    <line x1="140" y1="110" x2="140" y2="130" stroke="#f8fafc" stroke-width="3"/>
+    <line x1="155" y1="110" x2="155" y2="130" stroke="#f8fafc" stroke-width="3"/>
+    <text x="148" y="145" text-anchor="middle" class="txt">Q0.0 (Self-latch)</text>
+    <line x1="155" y1="120" x2="210" y2="120" class="wire"/>
+    <line x1="210" y1="120" x2="210" y2="60" class="wire"/>
+
+    <!-- Coil Q0.0 -->
+    <path d="M 440 50 Q 455 60, 440 70" stroke="#f8fafc" stroke-width="3" fill="none"/>
+    <path d="M 470 50 Q 455 60, 470 70" stroke="#f8fafc" stroke-width="3" fill="none"/>
+    <text x="455" y="40" text-anchor="middle" class="txt" fill="#10b981">Q0.0 (Motor)</text>
+    <line x1="470" y1="60" x2="550" y2="60" class="wire" />
+
+    <text x="300" y="185" text-anchor="middle" class="lbl">Hình 1.4: Biểu đồ hình thang PLC (Ladder Logic) duy trì động cơ</text>
+  </svg>
