@@ -1,7 +1,19 @@
-import { Topic, Question, CreateQuestionPayload, MediaAsset } from '../types/index.js';
+import {
+  Topic,
+  Question,
+  CreateQuestionPayload,
+  MediaAsset,
+  User,
+  CreateUserPayload,
+  UpdateUserPayload,
+  QuizAttempt,
+  CreateQuizAttemptPayload,
+  UserStats
+} from '../types/index.js';
 
 const API_BASE = '/api';
 
+// Topics
 export async function fetchTopics(tree = false, level?: number): Promise<Topic[]> {
   const params = new URLSearchParams();
   if (tree) params.set('tree', 'true');
@@ -13,6 +25,7 @@ export async function fetchTopics(tree = false, level?: number): Promise<Topic[]
   return json.data;
 }
 
+// Questions
 export async function fetchQuestions(
   topicId?: number,
   difficulty?: number,
@@ -57,6 +70,7 @@ export async function deleteQuestion(id: number): Promise<void> {
   if (!json.success) throw new Error(json.message || 'Failed to delete question');
 }
 
+// Media
 export async function uploadMediaFile(
   file: File,
   meta?: { media_key?: string; alt_text?: string; caption?: string }
@@ -83,6 +97,7 @@ export async function fetchMediaAssets(): Promise<MediaAsset[]> {
   return json.data;
 }
 
+// Database Inspector
 export async function fetchDbSchema(): Promise<any> {
   const res = await fetch(`${API_BASE}/db/schema`);
   const json = await res.json();
@@ -104,4 +119,109 @@ export async function seedDb(): Promise<any> {
   const json = await res.json();
   if (!json.success) throw new Error(json.message || 'Failed to seed database');
   return json.data;
+}
+
+// Users API
+export async function fetchUsers(): Promise<User[]> {
+  const res = await fetch(`${API_BASE}/users`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to fetch users');
+  return json.data;
+}
+
+export async function fetchUserById(id: number): Promise<User> {
+  const res = await fetch(`${API_BASE}/users/${id}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to fetch user');
+  return json.data;
+}
+
+export async function createUser(payload: CreateUserPayload): Promise<User> {
+  const res = await fetch(`${API_BASE}/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to create user');
+  return json.data;
+}
+
+export async function updateUser(id: number, payload: UpdateUserPayload): Promise<User> {
+  const res = await fetch(`${API_BASE}/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to update user');
+  return json.data;
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/users/${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to delete user');
+}
+
+// History API
+export async function saveQuizAttempt(payload: CreateQuizAttemptPayload): Promise<QuizAttempt> {
+  const res = await fetch(`${API_BASE}/history`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to save quiz attempt');
+  return json.data;
+}
+
+export async function fetchQuizHistory(
+  userId?: number,
+  mode?: string,
+  limit?: number,
+  offset?: number
+): Promise<QuizAttempt[]> {
+  const params = new URLSearchParams();
+  if (userId) params.set('user_id', userId.toString());
+  if (mode && mode !== 'all') params.set('mode', mode);
+  if (limit) params.set('limit', limit.toString());
+  if (offset) params.set('offset', offset.toString());
+
+  const res = await fetch(`${API_BASE}/history?${params.toString()}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to fetch history');
+  return json.data;
+}
+
+export async function fetchQuizAttemptDetail(id: number): Promise<QuizAttempt> {
+  const res = await fetch(`${API_BASE}/history/${id}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to fetch attempt detail');
+  return json.data;
+}
+
+export async function fetchUserStats(userId: number): Promise<UserStats> {
+  const res = await fetch(`${API_BASE}/history/stats/${userId}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to fetch user stats');
+  return json.data;
+}
+
+export async function deleteQuizAttempt(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/history/${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to delete attempt');
+}
+
+export async function clearUserHistory(userId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/history/user/${userId}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Failed to clear user history');
 }

@@ -26,6 +26,19 @@ export function getDb(): DatabaseType {
 
     // Initialize Schema
     dbInstance.exec(SCHEMA_SQL);
+
+    // Initialize Default User if empty
+    try {
+      const userCount = dbInstance.prepare('SELECT count(*) as count FROM users').get() as { count: number };
+      if (userCount.count === 0) {
+        dbInstance.prepare(`
+          INSERT INTO users (username, display_name, email, role, color)
+          VALUES (?, ?, ?, ?, ?)
+        `).run('default_user', 'Kỹ Sư Trẻ', 'engineer@techquiz.io', 'engineer', '#06b6d4');
+      }
+    } catch (e) {
+      console.error('Error seeding default user:', e);
+    }
   }
   return dbInstance;
 }

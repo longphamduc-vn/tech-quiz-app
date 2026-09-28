@@ -20,7 +20,9 @@ import {
   CheckCheck,
   Settings
 } from 'lucide-react';
-import { Question, Topic } from '../types/index.js';
+import { Question, Topic, User, QuizAttempt, QuizAttemptDetail } from '../types/index.js';
+import { saveQuizAttempt } from '../utils/api.js';
+import { ExamResultModal } from '../components/ExamResultModal.js';
 import { TopicSelector } from '../components/TopicSelector.js';
 import { MathMarkdownRenderer } from '../components/MathMarkdownRenderer.js';
 import {
@@ -39,6 +41,8 @@ interface QuizPageProps {
   onSelectDifficulty: (diff: number | null) => void;
   loading: boolean;
   onRefresh: () => void;
+  currentUser: User | null;
+  onNavigateHistory?: () => void;
 }
 
 // Fisher-Yates shuffle algorithm
@@ -59,8 +63,14 @@ export const QuizPage: React.FC<QuizPageProps> = ({
   selectedDifficulty,
   onSelectDifficulty,
   loading,
-  onRefresh
+  onRefresh,
+  currentUser,
+  onNavigateHistory
 }) => {
+  // User Attempt & Result Modal State
+  const [latestAttempt, setLatestAttempt] = useState<QuizAttempt | null>(null);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [isSavingAttempt, setIsSavingAttempt] = useState(false);
   // 0. User Settings (Loaded from LocalStorage & Configurable - NOT hardcoded)
   const [quizSettings, setQuizSettings] = useState<QuizSettings>(loadStoredSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -176,8 +186,69 @@ export const QuizPage: React.FC<QuizPageProps> = ({
     setSubmittedQuestions(nextSubmitted);
   };
 
+  // Save attempt to history backend
+  const saveAttemptToHistory = async (mode: 'exam' | 'practice') => {
+    if (!currentUser || displayedQuestions.length === 0) return;
+
+    const answersDetail: QuizAttemptDetail[] = displayedQuestions.map((q) => {
+      const selectedOptIdx = selectedAnswers[q.id];
+      const correctOptIdx = q.options.findIndex((opt) => Boolean(opt.is_correct));
+      const isCorrect = selectedOptIdx !== undefined && Boolean(q.options[selectedOptIdx]?.is_correct);
+
+      return {
+        question_id: q.id,
+        question_content: q.content,
+        context_text: q.context_text,
+        difficulty_level: q.difficulty_level,
+        topic_name: q.topic?.name,
+        selected_option_index: selectedOptIdx,
+        correct_option_index: correctOptIdx >= 0 ? correctOptIdx : 0,
+        is_correct: Boolean(isCorrect),
+        options: q.options.map((opt) => ({
+          content: opt.content,
+          is_correct: Boolean(opt.is_correct),
+          image_url: opt.image_url
+        })),
+        explanation: q.explanation
+      };
+    });
+
+    const correctCount = answersDetail.filter((d) => d.is_correct).length;
+    const answeredCount = Object.keys(selectedAnswers).length;
+    const scorePercentage = displayedQuestions.length > 0
+      ? Math.round((correctCount / displayedQuestions.length) * 100 * 10) / 10
+      : 0;
+    const timeSpentSeconds = Math.max(1, (quizSettings.examDurationMinutes * 60) - timeLeft);
+
+    const selectedTopic = topics.find((t) => t.id === selectedTopicId);
+    const topicName = selectedTopic ? selectedTopic.name : 'Đề Thi Kỹ Thuật Tổng Hợp';
+
+    try {
+      setIsSavingAttempt(true);
+      const saved = await saveQuizAttempt({
+        user_id: currentUser.id,
+        topic_id: selectedTopicId,
+        topic_name: topicName,
+        mode,
+        view_mode: viewMode,
+        total_questions: displayedQuestions.length,
+        answered_count: answeredCount,
+        correct_count: correctCount,
+        score_percentage: scorePercentage,
+        time_spent_seconds: timeSpentSeconds,
+        answers_detail: answersDetail
+      });
+      setLatestAttempt(saved);
+      setIsResultModalOpen(true);
+    } catch (err) {
+      console.error('Failed to save quiz attempt:', err);
+    } finally {
+      setIsSavingAttempt(false);
+    }
+  };
+
   // Submit entire exam (in exam mode)
-  const handleExamSubmit = () => {
+  const handleExamSubmit = async () => {
     const nextSubmitted: Record<number, boolean> = { ...submittedQuestions };
     displayedQuestions.forEach((q) => {
       nextSubmitted[q.id] = true;
@@ -185,6 +256,19 @@ export const QuizPage: React.FC<QuizPageProps> = ({
     setSubmittedQuestions(nextSubmitted);
     setExamSubmitted(true);
     setIsTimerRunning(false);
+    await saveAttemptToHistory('exam');
+  };
+
+  // Save practice session manually
+  const handleSavePractice = async () => {
+    const nextSubmitted: Record<number, boolean> = { ...submittedQuestions };
+    displayedQuestions.forEach((q) => {
+      if (selectedAnswers[q.id] !== undefined) {
+        nextSubmitted[q.id] = true;
+      }
+    });
+    setSubmittedQuestions(nextSubmitted);
+    await saveAttemptToHistory('practice');
   };
 
   // Clear answer for a single question
@@ -1130,6 +1214,30 @@ export const QuizPage: React.FC<QuizPageProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Quick Submit / Save Button for both Single & List views */}
+            <div className="pt-1">
+              {isExamMode ? (
+                <button
+                  onClick={handleExamSubmit}
+                  disabled={examSubmitted || isSavingAttempt}
+                  className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold transition shadow-md shadow-amber-600/30 flex items-center justify-center gap-2"
+                >
+                  <Award className="w-4 h-4" />
+                  <span>{examSubmitted ? 'Đã Nộp Bài Thi' : isSavingAttempt ? 'Đang Nộp Bài...' : 'Nộp Bài Thi Ngay'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleSavePractice}
+                  disabled={stats.answeredCount === 0 || isSavingAttempt}
+                  className="w-full py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-xs font-bold transition shadow-md shadow-purple-600/20 flex items-center justify-center gap-2"
+                  title="Lưu tiến độ và kết quả các câu đã làm vào lịch sử"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isSavingAttempt ? 'Đang Lưu...' : 'Lưu Kết Quả Luyện Tập'}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1141,6 +1249,26 @@ export const QuizPage: React.FC<QuizPageProps> = ({
         currentSettings={quizSettings}
         onSaveSettings={handleSaveSettings}
         totalAvailableQuestions={questions.length}
+      />
+
+      {/* Exam & Practice Result Modal */}
+      <ExamResultModal
+        isOpen={isResultModalOpen}
+        onClose={() => setIsResultModalOpen(false)}
+        attempt={latestAttempt}
+        currentUser={currentUser}
+        onReviewQuiz={() => {
+          setIsResultModalOpen(false);
+          if (viewMode === 'single') setCurrentIndex(0);
+        }}
+        onRetakeQuiz={() => {
+          setIsResultModalOpen(false);
+          handleResetQuiz();
+        }}
+        onNavigateHistory={() => {
+          setIsResultModalOpen(false);
+          if (onNavigateHistory) onNavigateHistory();
+        }}
       />
     </div>
   );

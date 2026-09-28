@@ -1,17 +1,23 @@
 import React from 'react';
-import { Cpu, BookOpen, PenTool, Database, Sparkles, CheckCircle2 } from 'lucide-react';
-import { ActiveTab } from '../types/index.js';
+import { Cpu, BookOpen, PenTool, Database, History, User as UserIcon } from 'lucide-react';
+import { ActiveTab, User } from '../types/index.js';
 
 interface HeaderProps {
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
   questionCount: number;
+  currentUser: User | null;
+  onOpenUserModal: () => void;
+  historyCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onTabChange,
-  questionCount
+  questionCount,
+  currentUser,
+  onOpenUserModal,
+  historyCount
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80">
@@ -45,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
           <nav className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl">
             <button
               onClick={() => onTabChange('quiz')}
-              className={`flex items-center gap-2 px-3.5 py-1.75 rounded-lg text-xs font-semibold transition-all duration-150 ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
                 activeTab === 'quiz'
                   ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/25'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -63,36 +69,75 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
+              onClick={() => onTabChange('history')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                activeTab === 'history'
+                  ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Lịch Sử</span>
+              {historyCount !== undefined && historyCount > 0 && (
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    activeTab === 'history' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {historyCount}
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => onTabChange('admin')}
-              className={`flex items-center gap-2 px-3.5 py-1.75 rounded-lg text-xs font-semibold transition-all duration-150 ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
                 activeTab === 'admin'
                   ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/25'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
               <PenTool className="w-4 h-4" />
-              <span>Studio Soạn Thảo</span>
+              <span className="hidden md:inline">Studio Soạn Thảo</span>
+              <span className="md:hidden">Studio</span>
             </button>
 
             <button
               onClick={() => onTabChange('db')}
-              className={`flex items-center gap-2 px-3.5 py-1.75 rounded-lg text-xs font-semibold transition-all duration-150 ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
                 activeTab === 'db'
                   ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/25'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
               <Database className="w-4 h-4" />
-              <span>SQLite Inspector</span>
+              <span className="hidden md:inline">SQLite Inspector</span>
+              <span className="md:hidden">SQLite</span>
             </button>
           </nav>
 
-          {/* SQLite DB Status Badge */}
-          <div className="hidden md:flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-xl">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>SQLite WAL</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-cyan-400 text-[11px]">app.db</span>
+          {/* User Profile Button */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenUserModal}
+              className="flex items-center gap-2.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-800/80 transition group"
+              title="Nhấp để đổi hoặc quản lý người dùng"
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm transition-transform group-hover:scale-105"
+                style={{ backgroundColor: currentUser?.color || '#06b6d4' }}
+              >
+                {(currentUser?.display_name || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-300 transition-colors leading-tight">
+                  {currentUser?.display_name || 'Học Viên'}
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 leading-tight">
+                  {currentUser?.role === 'engineer' ? 'Kỹ Sư' : currentUser?.role === 'admin' ? 'Quản Trị' : 'Học Viên'}
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       </div>

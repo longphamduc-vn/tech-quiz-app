@@ -43,10 +43,44 @@ CREATE TABLE IF NOT EXISTS options (
   order_index INTEGER NOT NULL DEFAULT 1
 );
 
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  display_name TEXT NOT NULL,
+  email TEXT NULL,
+  avatar_url TEXT NULL,
+  role TEXT NOT NULL DEFAULT 'student', -- 'student', 'engineer', 'admin'
+  color TEXT NOT NULL DEFAULT '#06b6d4',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_active_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Quiz Attempts / History
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  topic_id INTEGER NULL REFERENCES topics(id) ON DELETE SET NULL,
+  topic_name TEXT NULL,
+  mode TEXT NOT NULL DEFAULT 'exam', -- 'exam' | 'practice'
+  view_mode TEXT NOT NULL DEFAULT 'list', -- 'list' | 'single'
+  total_questions INTEGER NOT NULL,
+  answered_count INTEGER NOT NULL,
+  correct_count INTEGER NOT NULL,
+  score_percentage REAL NOT NULL,
+  time_spent_seconds INTEGER NOT NULL,
+  answers_detail TEXT NOT NULL, -- JSON array
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_topics_parent ON topics(parent_id);
 CREATE INDEX IF NOT EXISTS idx_topics_level ON topics(level);
 CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic_id);
 CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty_level);
 CREATE INDEX IF NOT EXISTS idx_options_question ON options(question_id);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user ON quiz_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_created ON quiz_attempts(created_at);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_mode ON quiz_attempts(mode);
 `;

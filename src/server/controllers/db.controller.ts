@@ -61,7 +61,7 @@ export class DbController {
   public async getTableData(req: Request, res: Response, Next: NextFunction): Promise<void> {
     try {
       const tableName = String(req.params.tableName);
-      const allowedTables = ['topics', 'questions', 'options', 'media_assets'];
+      const allowedTables = ['topics', 'questions', 'options', 'media_assets', 'users', 'quiz_attempts'];
 
       if (!allowedTables.includes(tableName)) {
         res.status(400).json({ success: false, message: `Invalid table: ${tableName}` });

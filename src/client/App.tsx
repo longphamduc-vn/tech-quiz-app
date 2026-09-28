@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ActiveTab, Question, Topic, MediaAsset, LightboxState } from './types/index.js';
+import { ActiveTab, Question, Topic, MediaAsset, LightboxState, User, CreateUserPayload } from './types/index.js';
 import { Header } from './components/Header.js';
 import { LightboxModal } from './components/LightboxModal.js';
+import { UserModal } from './components/UserModal.js';
 import { QuizPage } from './pages/QuizPage.js';
+import { HistoryPage } from './pages/HistoryPage.js';
 import { AdminEditor } from './pages/AdminEditor.js';
 import { DbInspector } from './pages/DbInspector.js';
-import { fetchQuestions, fetchTopics, fetchMediaAssets } from './utils/api.js';
+import {
+  fetchQuestions,
+  fetchTopics,
+  fetchMediaAssets,
+  fetchUsers,
+  createUser,
+  deleteUser,
+  fetchQuizHistory
+} from './utils/api.js';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('quiz');
@@ -14,6 +24,12 @@ export function App() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+
+  // User Profile State
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [historyCount, setHistoryCount] = useState<number>(0);
 
   // Filters
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
@@ -27,6 +43,37 @@ export function App() {
     altText: '',
     caption: ''
   });
+
+  // Load Users
+  const loadUsersData = useCallback(async () => {
+    try {
+      const userList = await fetchUsers();
+      setUsers(userList);
+      const savedId = localStorage.getItem('tech_quiz_active_user_id');
+      if (savedId) {
+        const found = userList.find((u) => u.id === Number(savedId));
+        if (found) {
+          setCurrentUser(found);
+          return;
+        }
+      }
+      if (userList.length > 0) {
+        setCurrentUser(userList[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    }
+  }, []);
+
+  // Load History count
+  const refreshHistoryCount = useCallback(async () => {
+    try {
+      const list = await fetchQuizHistory();
+      setHistoryCount(list.length);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Load Topics & Media Assets
   const loadInitialData = useCallback(async () => {
@@ -59,12 +106,42 @@ export function App() {
   }, [selectedTopicId, selectedDifficulty]);
 
   useEffect(() => {
+    loadUsersData();
     loadInitialData();
-  }, [loadInitialData]);
+  }, [loadUsersData, loadInitialData]);
 
   useEffect(() => {
     loadQuestions();
   }, [loadQuestions]);
+
+  useEffect(() => {
+    refreshHistoryCount();
+  }, [refreshHistoryCount, activeTab]);
+
+  // User Actions
+  const handleSelectUser = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem('tech_quiz_active_user_id', String(user.id));
+    setIsUserModalOpen(false);
+  };
+
+  const handleCreateUser = async (payload: CreateUserPayload) => {
+    const newUser = await createUser(payload);
+    setUsers((prev) => [newUser, ...prev]);
+    setCurrentUser(newUser);
+    localStorage.setItem('tech_quiz_active_user_id', String(newUser.id));
+    return newUser;
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    await deleteUser(userId);
+    const remaining = users.filter((u) => u.id !== userId);
+    setUsers(remaining);
+    if (currentUser?.id === userId && remaining.length > 0) {
+      setCurrentUser(remaining[0]);
+      localStorage.setItem('tech_quiz_active_user_id', String(remaining[0].id));
+    }
+  };
 
   // Global Lightbox Click Handler for all .media-trigger elements
   useEffect(() => {
@@ -95,6 +172,9 @@ export function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         questionCount={questions.length}
+        currentUser={currentUser}
+        onOpenUserModal={() => setIsUserModalOpen(true)}
+        historyCount={historyCount}
       />
 
       {/* Main View Router */}
@@ -109,6 +189,17 @@ export function App() {
             onSelectDifficulty={setSelectedDifficulty}
             loading={loading}
             onRefresh={loadQuestions}
+            currentUser={currentUser}
+            onNavigateHistory={() => setActiveTab('history')}
+          />
+        )}
+
+        {activeTab === 'history' && (
+          <HistoryPage
+            currentUser={currentUser}
+            users={users}
+            onOpenUserModal={() => setIsUserModalOpen(true)}
+            onNavigateToQuiz={() => setActiveTab('quiz')}
           />
         )}
 
@@ -141,6 +232,17 @@ export function App() {
       <LightboxModal
         state={lightboxState}
         onClose={() => setLightboxState((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* User Management & Switcher Modal */}
+      <UserModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        users={users}
+        currentUser={currentUser}
+        onSelectUser={handleSelectUser}
+        onCreateUser={handleCreateUser}
+        onDeleteUser={handleDeleteUser}
       />
     </div>
   );

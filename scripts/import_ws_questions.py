@@ -4,6 +4,7 @@ import re
 import os
 import sqlite3
 import json
+from enrich_technical_explanations import generate_contextual_explanation
 
 DB_PATH = 'data/app.db'
 UPLOAD_DIR = 'data/uploads'
