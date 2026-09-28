@@ -17,11 +17,18 @@ import {
   Layers,
   Minimize2,
   Maximize2,
-  CheckCheck
+  CheckCheck,
+  Settings
 } from 'lucide-react';
 import { Question, Topic } from '../types/index.js';
 import { TopicSelector } from '../components/TopicSelector.js';
 import { MathMarkdownRenderer } from '../components/MathMarkdownRenderer.js';
+import {
+  QuizSettings,
+  QuizSettingsModal,
+  loadStoredSettings,
+  saveStoredSettings
+} from '../components/QuizSettingsModal.js';
 
 interface QuizPageProps {
   questions: Question[];
@@ -54,19 +61,23 @@ export const QuizPage: React.FC<QuizPageProps> = ({
   loading,
   onRefresh
 }) => {
+  // 0. User Settings (Loaded from LocalStorage & Configurable - NOT hardcoded)
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>(loadStoredSettings);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   // 1. View & Display Modes
   // 'list' = Làm nhiều câu cùng lúc (Multi-question list view)
   // 'single' = Làm từng câu một (Single-question card view)
-  const [viewMode, setViewMode] = useState<'list' | 'single'>('list');
-  const [isCompact, setIsCompact] = useState(true); // "Kích thước câu hỏi bé lại"
+  const [viewMode, setViewMode] = useState<'list' | 'single'>(quizSettings.defaultViewMode);
+  const [isCompact, setIsCompact] = useState(quizSettings.isCompact); // "Kích thước câu hỏi bé lại"
 
   // 2. Exam vs Practice Mode
   const [isExamMode, setIsExamMode] = useState(false);
   const [examSubmitted, setExamSubmitted] = useState(false);
 
   // 3. Random & Pool Size for Practice Mode ("Chế độ luyện tập thì random")
-  const [isRandom, setIsRandom] = useState(true);
-  const [questionPoolLimit, setQuestionPoolLimit] = useState<number | 'all'>(20);
+  const [isRandom, setIsRandom] = useState(quizSettings.isRandom);
+  const [questionPoolLimit, setQuestionPoolLimit] = useState<number | 'all'>(quizSettings.questionLimit);
   const [shuffleKey, setShuffleKey] = useState(0);
 
   // 4. Current index for Single-question mode
@@ -80,8 +91,8 @@ export const QuizPage: React.FC<QuizPageProps> = ({
   // 6. Navigation Matrix Filter: 'all' | 'unanswered' | 'bookmarked'
   const [matrixFilter, setMatrixFilter] = useState<'all' | 'unanswered' | 'bookmarked'>('all');
 
-  // 7. Timer Countdown: Default 30 minutes (1800s)
-  const [timeLeft, setTimeLeft] = useState(1800);
+  // 7. Timer Countdown: Configurable duration (default 30 mins)
+  const [timeLeft, setTimeLeft] = useState(quizSettings.examDurationMinutes * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
 
   // Active Displayed Questions (shuffled if isRandom and limited if pool limit is set)
@@ -93,9 +104,15 @@ export const QuizPage: React.FC<QuizPageProps> = ({
     if (questionPoolLimit !== 'all' && typeof questionPoolLimit === 'number') {
       list = list.slice(0, questionPoolLimit);
     }
+    if (quizSettings.shuffleOptions) {
+      list = list.map((q) => ({
+        ...q,
+        options: shuffleArray(q.options)
+      }));
+    }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions, isRandom, isExamMode, shuffleKey, questionPoolLimit]);
+  }, [questions, isRandom, isExamMode, shuffleKey, questionPoolLimit, quizSettings.shuffleOptions]);
 
   // Reset single-question index if out of bounds
   useEffect(() => {
@@ -185,8 +202,31 @@ export const QuizPage: React.FC<QuizPageProps> = ({
     setSelectedAnswers({});
     setSubmittedQuestions({});
     setExamSubmitted(false);
-    setTimeLeft(1800);
+    setTimeLeft(quizSettings.examDurationMinutes * 60);
     setIsTimerRunning(true);
+  };
+
+  // Update question limit and persist to localStorage
+  const updatePoolLimit = (newLimit: number | 'all') => {
+    setQuestionPoolLimit(newLimit);
+    setQuizSettings((prev) => {
+      const updated: QuizSettings = { ...prev, questionLimit: newLimit };
+      saveStoredSettings(updated);
+      return updated;
+    });
+    handleResetQuiz();
+  };
+
+  // Save settings from modal
+  const handleSaveSettings = (newSettings: QuizSettings) => {
+    setQuizSettings(newSettings);
+    setQuestionPoolLimit(newSettings.questionLimit);
+    setIsCompact(newSettings.isCompact);
+    setViewMode(newSettings.defaultViewMode);
+    setIsRandom(newSettings.isRandom);
+    setTimeLeft(newSettings.examDurationMinutes * 60);
+    handleResetQuiz();
+    setShuffleKey((k) => k + 1);
   };
 
   // Draw fresh random questions for practice
@@ -382,7 +422,15 @@ export const QuizPage: React.FC<QuizPageProps> = ({
 
             {/* Compact Size Toggle ("Kích thước câu hỏi bé lại") */}
             <button
-              onClick={() => setIsCompact(!isCompact)}
+              onClick={() => {
+                const nextCompact = !isCompact;
+                setIsCompact(nextCompact);
+                setQuizSettings((prev) => {
+                  const updated = { ...prev, isCompact: nextCompact };
+                  saveStoredSettings(updated);
+                  return updated;
+                });
+              }}
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition ${
                 isCompact
                   ? 'bg-slate-800 border-cyan-500/50 text-cyan-300'
@@ -399,7 +447,13 @@ export const QuizPage: React.FC<QuizPageProps> = ({
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
-                    setIsRandom(!isRandom);
+                    const nextRandom = !isRandom;
+                    setIsRandom(nextRandom);
+                    setQuizSettings((prev) => {
+                      const updated = { ...prev, isRandom: nextRandom };
+                      saveStoredSettings(updated);
+                      return updated;
+                    });
                     handleShuffleNewSet();
                   }}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition ${
@@ -413,21 +467,42 @@ export const QuizPage: React.FC<QuizPageProps> = ({
                   <span>{isRandom ? 'Random Bật' : 'Theo thứ tự'}</span>
                 </button>
 
-                {/* Pool Limit Selector */}
+                {/* Pool Limit Selector (Configurable - NOT hardcoded) */}
                 <select
-                  value={questionPoolLimit}
+                  value={
+                    questionPoolLimit === 'all'
+                      ? 'all'
+                      : [5, 10, 15, 20, 25, 30, 40, 50, 100].includes(questionPoolLimit)
+                      ? String(questionPoolLimit)
+                      : 'custom'
+                  }
                   onChange={(e) => {
-                    const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
-                    setQuestionPoolLimit(val);
-                    handleResetQuiz();
+                    if (e.target.value === 'custom') {
+                      setIsSettingsOpen(true);
+                    } else if (e.target.value === 'all') {
+                      updatePoolLimit('all');
+                    } else {
+                      updatePoolLimit(Number(e.target.value));
+                    }
                   }}
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] font-mono text-slate-300 focus:outline-none focus:border-cyan-500 transition"
-                  title="Số lượng câu hỏi trong một lượt luyện tập"
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] font-mono text-slate-300 focus:outline-none focus:border-cyan-500 transition cursor-pointer"
+                  title="Số lượng câu hỏi trong một lượt làm bài (Đã lưu cài đặt)"
                 >
+                  <option value="5">5 câu</option>
                   <option value="10">10 câu</option>
+                  <option value="15">15 câu</option>
                   <option value="20">20 câu</option>
+                  <option value="25">25 câu</option>
+                  <option value="30">30 câu</option>
+                  <option value="40">40 câu</option>
                   <option value="50">50 câu</option>
+                  <option value="100">100 câu</option>
                   <option value="all">Tất cả ({questions.length})</option>
+                  {typeof questionPoolLimit === 'number' &&
+                    ![5, 10, 15, 20, 25, 30, 40, 50, 100].includes(questionPoolLimit) && (
+                      <option value="custom">Tùy chỉnh: {questionPoolLimit} câu</option>
+                    )}
+                  <option value="custom">⚙️ Số khác...</option>
                 </select>
 
                 {/* Reshuffle Button */}
@@ -440,6 +515,16 @@ export const QuizPage: React.FC<QuizPageProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Settings Dialog Trigger Button */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:border-cyan-500 text-slate-300 hover:text-cyan-300 text-xs font-medium transition"
+              title="Cài đặt số câu hỏi, thời gian và tùy chọn làm bài (Không hardcode)"
+            >
+              <Settings className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Cài đặt</span>
+            </button>
 
             {/* Mode Toggle: Practice vs Exam */}
             <button
@@ -1048,6 +1133,15 @@ export const QuizPage: React.FC<QuizPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Quiz Settings Modal (Configurable question limit, timer, etc. - NOT hardcoded) */}
+      <QuizSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentSettings={quizSettings}
+        onSaveSettings={handleSaveSettings}
+        totalAvailableQuestions={questions.length}
+      />
     </div>
   );
 };
