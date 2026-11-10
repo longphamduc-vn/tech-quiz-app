@@ -272,67 +272,65 @@ npm run build
 
 ---
 
-## 7. Cấu Trúc Thư Mục Dự Án
+## 7. Cấu Trúc Thư Mục Dự Án (Đã Chuẩn Hóa & Phân Tầng)
+
+Dự án được phân loại mạch lạc thành các phân hệ độc lập:
 
 ```
 tech-quiz-app/
-├── package.json                 # Cấu hình dự án, scripts và dependencies
+├── raw-sources/                 # [PHÂN HỆ 1: TÀI LIỆU GỐC]
+│   ├── WS/                      # Thư mục tài liệu gốc: Slide PowerPoint (.pptx), ảnh đáp án (.jpg), bảng điểm (.xlsx)
+│   ├── docs/                    # Tài liệu tham khảo kỹ thuật (main.pdf)
+│   └── README.md
+│
+├── data-pipeline/               # [PHÂN HỆ 2: CÔNG CỤ ETL & TRÍCH XUẤT DỮ LIỆU PYTHON]
+│   ├── core/                    # Scripts chính:
+│   │   ├── import_ws_questions.py       # Bóc tách câu hỏi & ảnh từ slide nạp vào SQLite
+│   │   ├── enrich_technical_explanations.py # Sinh lời giải thích kỹ thuật
+│   │   └── specialized_rules.py         # Bộ 94+ quy tắc chuẩn hóa thuật ngữ & chính tả
+│   ├── dev-tools/               # 30 script phân tích slide, debug OCR và kiểm thử dữ liệu
+│   ├── exporters/               # Script xuất dữ liệu ra file tĩnh cho GitHub Pages (tech-ws-app)
+│   │   ├── export_to_static.py  # Xuất SQLite sang questions_master.js, summary.js
+│   │   └── dist/                # Thư mục chứa các file bundle đã xuất
+│   ├── requirements.txt         # Khai báo môi trường Python
+│   └── README.md
+│
+├── tests/                       # [PHÂN HỆ 3: KIỂM THỬ TỰ ĐỘNG]
+│   └── test-backend.ts          # Test logic phân tích thẻ media, atomic transactions & hierarchy
+│
+├── data/                        # [CƠ SỞ DỮ LIỆU & MEDIA UPLOADS]
+│   ├── app.db                   # Cơ sở dữ liệu SQLite chính (WAL mode)
+│   └── uploads/                 # Kho ảnh sơ đồ kỹ thuật trích xuất và tải lên
+│
+├── src/                         # [PHÂN HỆ 4: MÃ NGUỒN ỨNG DỤNG WEB FULLSTACK]
+│   ├── server/                  # TẦNG BACKEND (Express 5 + better-sqlite3)
+│   │   ├── db/                  # database.ts, schema.ts, seed.ts
+│   │   ├── types/               # TypeScript Interfaces & DTOs backend
+│   │   ├── repositories/        # topic, media, question, user, history repositories
+│   │   ├── services/            # question (Media Regex Parser), topic, user, history services
+│   │   ├── controllers/         # question, topic, media, user, history, db controllers
+│   │   ├── routes/              # Express REST API routes
+│   │   ├── middleware/          # errorHandler, multer upload
+│   │   ├── app.ts               # Express configuration, CORS, static middleware
+│   │   └── index.ts             # Server entry point (Port 3001)
+│   └── client/                  # TẦNG FRONTEND (React 19 + Tailwind v4 + KaTeX)
+│       ├── main.tsx             # React DOM entry point
+│       ├── App.tsx              # Root component, routing, user & history states
+│       ├── index.css            # High-contrast theme styling & KaTeX container
+│       ├── types/               # TypeScript client types
+│       ├── utils/               # mathMarkdown.ts, api.ts
+│       ├── components/          # Header, LightboxModal, MathMarkdownRenderer, TopicSelector, UserModal, QuizSettingsModal, ExamResultModal
+│       └── pages/
+│           ├── QuizPage.tsx     # Giao diện luyện thi & ma trận câu hỏi
+│           ├── AdminEditor.tsx  # Studio soạn thảo chia đôi màn hình (Live preview)
+│           ├── HistoryPage.tsx  # Quản lý hồ sơ học viên & theo dõi lịch sử làm bài
+│           └── DbInspector.tsx  # Trình kiểm tra schema và dữ liệu SQLite
+│
+├── package.json                 # Cấu hình dự án, scripts: dev, dev:server, dev:client, seed, test, build
 ├── tsconfig.json                # Cấu hình TypeScript compiler
-├── vite.config.ts               # Cấu hình Vite, Tailwind CSS plugin và API Proxy
-├── index.html                   # HTML entry point nạp Google Fonts & KaTeX CSS
-├── data/
-│   ├── app.db                   # Tệp tin SQLite Database (WAL mode)
-│   └── uploads/                 # Thư mục lưu trữ hình ảnh và sơ đồ SVG kỹ thuật
-└── src/
-    ├── server/                  # TẦNG BACKEND (Express + better-sqlite3)
-    │   ├── db/
-    │   │   ├── database.ts      # Khởi tạo kết nối SQLite, cấu hình WAL & foreign keys
-    │   │   ├── schema.ts        # DDL SQL định nghĩa bảng topics, questions, options, media_assets
-    │   │   └── seed.ts          # Script tạo sơ đồ SVG và nạp dữ liệu câu hỏi mẫu
-    │   ├── types/
-    │   │   └── index.ts         # TypeScript Interfaces & DTOs cho backend
-    │   ├── repositories/
-    │   │   ├── topic.repository.ts
-    │   │   ├── media.repository.ts
-    │   │   └── question.repository.ts
-    │   ├── services/
-    │   │   ├── question.service.ts # Core Media Regex Parser & Atomic Transactions
-    │   │   ├── topic.service.ts    # Xử lý cây phân cấp 3 cấp độ
-    │   │   └── media.service.ts    # Xử lý upload và quản lý media asset
-    │   ├── controllers/
-    │   │   ├── question.controller.ts
-    │   │   ├── topic.controller.ts
-    │   │   ├── media.controller.ts
-    │   │   └── db.controller.ts
-    │   ├── routes/
-    │   │   ├── question.routes.ts
-    │   │   ├── topic.routes.ts
-    │   │   ├── media.routes.ts
-    │   │   ├── db.routes.ts
-    │   │   └── index.ts
-    │   ├── middleware/
-    │   │   ├── errorHandler.ts  # Middleware định dạng lỗi JSON chuẩn hóa
-    │   │   └── upload.ts        # Multer diskStorage lưu trữ ảnh vào ./data/uploads/
-    │   ├── app.ts               # Cấu hình Express app, static serving và CORS
-    │   └── index.ts             # Khởi động server HTTP tại port 3001
-    └── client/                  # TẦNG FRONTEND (React 19 + Tailwind v4 + KaTeX)
-        ├── main.tsx             # Entry point React DOM
-        ├── App.tsx              # Component gốc, router điều hướng và global lightbox handler
-        ├── index.css            # Thiết kế token CSS, KaTeX enhancements & media-container
-        ├── types/
-        │   └── index.ts         # TypeScript types giao diện người dùng
-        ├── utils/
-        │   ├── mathMarkdown.ts  # renderMathAndMarkdown(): Tokenize KaTeX + Marked + Media tag
-        │   └── api.ts           # Fetch API wrappers
-        ├── components/
-        │   ├── Header.tsx       # Thanh điều hướng trên cùng kèm trạng thái SQLite
-        │   ├── LightboxModal.tsx# Modal phóng to sơ đồ với zoom in/out/pan/reset
-        │   ├── MathMarkdownRenderer.tsx # Render nội dung công thức toán & Markdown
-        │   └── TopicSelector.tsx# Dropdown chọn chủ đề phân cấp 3 cấp
-        └── pages/
-            ├── QuizPage.tsx     # Giao diện làm bài thi trắc nghiệm & ma trận câu hỏi
-            ├── AdminEditor.tsx  # Studio soạn thảo chia đôi màn hình (Live preview)
-            └── DbInspector.tsx  # Trình kiểm tra schema và dữ liệu SQLite
+├── vite.config.ts               # Cấu hình Vite bundler & API reverse proxy
+├── index.html                   # HTML entry point nạp fonts & CSS
+└── README.md
 ```
 
 ---

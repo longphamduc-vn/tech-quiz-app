@@ -1,7 +1,7 @@
-import { createApp } from './src/server/app.js';
-import { questionService } from './src/server/services/question.service.js';
-import { mediaRepository } from './src/server/repositories/media.repository.js';
-import { topicService } from './src/server/services/topic.service.js';
+import { createApp } from '../src/server/app.js';
+import { questionService } from '../src/server/services/question.service.js';
+import { mediaRepository } from '../src/server/repositories/media.repository.js';
+import { topicService } from '../src/server/services/topic.service.js';
 
 async function runTests() {
   console.log('--- Testing Backend Services & Regex Parser ---');
